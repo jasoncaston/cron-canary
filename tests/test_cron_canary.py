@@ -90,6 +90,25 @@ def test_job_past_interval_uses_output_age(overdue_job: tuple[Path, Path]) -> No
     assert job.risks == ("output-overdue",)
 
 
+def test_crontab_future_output_timestamp_is_a_risk(tmp_path: Path) -> None:
+    log = tmp_path / "future-crontab.log"
+    log.write_text("future evidence\n", encoding="utf-8")
+    set_mtime(log, NOW + timedelta(minutes=5))
+    source = tmp_path / "crontab"
+    source.write_text(
+        f"MAILTO=alerts@example.invalid\n*/5 * * * * run-task >> {log} 2>&1\n",
+        encoding="utf-8",
+    )
+
+    job = inspect_source("crontab", source, now=NOW)[0]
+    assert job.name == "crontab:2"
+    assert job.output_target == str(log)
+    assert job.last_output == NOW + timedelta(minutes=5)
+    assert job.expected_interval_seconds == 300
+    assert job.overdue is None
+    assert job.risks == ("output-timestamp-in-future",)
+
+
 def test_unreadable_source_is_explicit_and_never_healthy(unreadable_source: Path, capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SourceReadError) as captured:
         inspect_source("crontab", unreadable_source, now=NOW)
@@ -131,6 +150,32 @@ def test_launchd_values_are_parsed_from_plist(tmp_path: Path) -> None:
     assert job.last_output == NOW - timedelta(seconds=30)
     assert job.has_failure_notification is True
     assert job.risks == ()
+
+
+def test_launchd_future_output_timestamp_is_a_risk(tmp_path: Path) -> None:
+    log = tmp_path / "future-launchd.log"
+    log.write_text("future evidence\n", encoding="utf-8")
+    set_mtime(log, NOW + timedelta(minutes=5))
+    source = tmp_path / "future.plist"
+    with source.open("wb") as handle:
+        plistlib.dump(
+            {
+                "Label": "future-launchd-job",
+                "ProgramArguments": ["run-task"],
+                "StartInterval": 300,
+                "StandardOutPath": str(log),
+                "EnvironmentVariables": {"CRON_CANARY_NOTIFY": "local-alert"},
+            },
+            handle,
+        )
+
+    job = inspect_source("launchd", source, now=NOW)[0]
+    assert job.name == "future-launchd-job"
+    assert job.output_target == str(log)
+    assert job.last_output == NOW + timedelta(minutes=5)
+    assert job.expected_interval_seconds == 300
+    assert job.overdue is None
+    assert job.risks == ("output-timestamp-in-future",)
 
 
 def test_github_actions_values_are_parsed_from_workflow(tmp_path: Path) -> None:

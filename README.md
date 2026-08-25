@@ -60,7 +60,7 @@ The JSON form contains `jobs` and `errors` arrays. Each job includes notificatio
 
 ## This tool shipped with the bug it detects.
 
-I shipped v1 with a hole in the exact rule I said mattered most. It reported an unparseable workflow as healthy when an annotation comment looked like evidence. I found out when an independent verification pass caught it. I changed the parser to reject files without workflow structure and to treat future output timestamps as risk, not proof.
+I shipped 0.1.0 with a hole in the exact rule I said mattered most. It reported an unparseable workflow as healthy when an annotation comment looked like evidence. I found out when an independent verification pass caught it. I changed the parser to reject files without workflow structure and to treat future output timestamps as risk, not proof.
 
 ## License
 
