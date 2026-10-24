@@ -2,13 +2,26 @@ name: Test
 
 on:
   push:
+    branches: [main]
+    tags: ['**']
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review, labeled, unlabeled]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: python-test-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name == 'pull_request' && (github.event.action == 'synchronize' || (github.event.action == 'labeled' && github.event.label.name == 'ci:verify-batch' && !github.event.pull_request.draft)) && 'active' || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
+
 jobs:
   test:
+    name: >-
+      ${{ (github.event_name != 'pull_request' || (github.event.action == 'labeled' && github.event.label.name == 'ci:verify-batch' && !github.event.pull_request.draft)) && format('test ({0})', matrix.python-version) || format('Awaiting batch checkpoint ({0})', matrix.python-version) }}
+    if: >-
+      ${{ github.event_name != 'pull_request' || (github.event.action == 'labeled' && github.event.label.name == 'ci:verify-batch' && !github.event.pull_request.draft) }}
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
